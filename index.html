@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prontuários em grupo</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#f6f5f1;--fg:#1d1d1b;--card:#fff;--mut:#74726b;--ok:#1f7a5a;--okbg:#e1f2ea;--no:#b3392f;--nobg:#f9e4e1;--bd:#e3e1da;--ac:#2b4c7e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#f0eee8;--card:#222220;--mut:#9b988f;--ok:#4fc79b;--okbg:#1e3a2f;--no:#ef8c82;--nobg:#432320;--bd:#34332f;--ac:#8fb0e6;color-scheme:dark}}
+*{box-sizing:border-box}[hidden]{display:none!important}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 12px}
+button{font:inherit;color:inherit}
+.drop{display:block;border:2px dashed var(--bd);border-radius:14px;padding:28px 16px;text-align:center;color:var(--mut);cursor:pointer;background:var(--card)}
+.drop b{color:var(--fg);display:block;font-size:17px;margin-bottom:4px}
+input[type=file]{display:none}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:8px 0;z-index:5}
+.stat{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--mut);margin-bottom:6px}
+.prog{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-bottom:10px;display:flex}
+.prog i{display:block;height:100%;transition:width .3s}
+#pf{background:var(--ok)}#pn{background:var(--no)}
+input[type=search]{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--fg);font-size:16px}
+.tabs{display:flex;gap:6px;margin-top:8px}
+.tabs button{flex:1;padding:8px;border:1px solid var(--bd);background:var(--card);border-radius:8px;font-size:14px}
+.tabs button.on{background:var(--ac);color:var(--bg);border-color:var(--ac)}
+.cx{background:var(--card);border:1px solid var(--bd);border-radius:12px;margin-top:10px;overflow:hidden}
+.cx.full{border-color:var(--ok)}
+.hd{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px;background:none;border:0;text-align:left}
+.hd b{font-size:18px}.hd span{font-size:13px;color:var(--mut)}
+.pp{padding:0 12px 10px}
+.p{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--bd)}
+.p .nm{flex:1;min-width:0;overflow-wrap:anywhere}
+.p .dt{display:block;font-size:12px;color:var(--mut)}
+.p button{width:46px;height:42px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);font-size:18px;font-weight:700}
+.p .y.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.p .x.on{background:var(--no);border-color:var(--no);color:#fff}
+.act{margin:18px 0}
+.act h2{font-size:15px;margin:0 0 8px}
+.act button{display:block;width:100%;padding:12px;margin-bottom:8px;border-radius:10px;border:1px solid var(--bd);background:var(--card);font-size:15px}
+.msg{font-size:13px;color:var(--mut);min-height:18px}
+.empty{text-align:center;color:var(--mut);padding:24px}
+
+section#login{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-top:8px}
+section#login input,.act input,.act select,.act textarea{width:100%;padding:12px;margin-bottom:8px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit}
+.big{width:100%;padding:12px;border-radius:10px;border:0;background:var(--ac);color:var(--bg);font-weight:700;font-size:16px}
+.who{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--mut);margin-bottom:6px}
+.who button{border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:6px 12px}
+.lead{border-top:1px solid var(--bd);margin-top:16px;padding-top:12px}
+.act textarea{min-height:90px}
+</style></head><body><main>
+<h1>Prontuários em grupo</h1>
+<div class="msg" id="st">Conectando…</div>
+<section id="login" hidden>
+<input type="email" id="em" placeholder="E-mail" autocomplete="username">
+<input type="password" id="pw" placeholder="Senha" autocomplete="current-password">
+<button class="big" id="go">Entrar</button>
+</section>
+<label class="drop" id="drop" hidden><b>Importar planilha Excel (líder)</b>Colunas: data, nome, nº da caixa<input type="file" id="f" accept=".xlsx,.xls,.csv"></label>
+<div id="app" hidden>
+<div class="who"><span id="me"></span><button id="out">Sair</button></div>
+<div class="bar">
+<div class="stat"><span id="cnt"></span><span id="det"></span></div>
+<div class="prog"><i id="pf"></i><i id="pn"></i></div>
+<input type="search" id="q" placeholder="Buscar nome ou caixa…">
+<div class="tabs" id="scope"><button data-s="mine" class="on">Minhas</button><button data-s="all">Todas</button></div>
+<div class="tabs" id="tabs"><button data-t="all" class="on">Todos</button><button data-t="p">Pendentes</button><button data-t="f">Achados</button><button data-t="n">Não achados</button></div>
+</div>
+<div id="list"></div>
+<div class="act">
+<button id="more">Pegar mais caixas</button>
+<div id="morebox" hidden>
+<div class="msg" id="noone" hidden>Ninguém tem caixas livres (sem marcações) para passar.</div>
+<select id="from"></select>
+<input type="number" id="qty" min="1" value="3" placeholder="Quantas caixas">
+<button id="take">Pegar</button>
+</div>
+<h2>Exportar Excel (ordenado por caixa)</h2>
+<button data-e="all">Tudo, com status</button>
+<button data-e="f">Só os encontrados</button>
+<button data-e="n">Só os não encontrados</button>
+<div id="lead" class="lead" hidden>
+<h2>Líder</h2>
+<textarea id="team" placeholder="E-mails da equipe, um por linha"></textarea>
+<button id="saveteam">Salvar equipe</button>
+<button id="div">Dividir caixas entre a equipe</button>
+<button id="wipe" style="color:var(--no)">Apagar tudo e reimportar</button>
+</div>
+<div class="msg" id="msg"></div>
+</div>
+</div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,doc,onSnapshot,setDoc,updateDoc,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ===== CONFIGURAÇÃO (cole aqui o seu firebaseConfig, se precisar trocar) ===== */
+const LEADER="lorival@gmail.com";
+const firebaseConfig={
+ apiKey:"AIzaSyCJt5nTkvxtqIjUBV57b5EIKDnzYvFaiJA",
+ authDomain:"prontuarios-grupo.firebaseapp.com",
+ projectId:"prontuarios-grupo",
+ storageBucket:"prontuarios-grupo.firebasestorage.app",
+ messagingSenderId:"621895510561",
+ appId:"1:621895510561:web:d0825c5cab807a7f7a1160"
+};
+/* ============================================================================ */
+
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+let me="",isLead=false,boxes={},team=[],scope="mine",tab="all",open={},unsubs=[],loaded=false,busy=false;
+const $=id=>document.getElementById(id);
+const cmp=(a,b)=>String(a).localeCompare(String(b),"pt-BR",{numeric:true});
+const bid=k=>"c"+String(k).replace(/[^A-Za-z0-9]/g,"_");
+const sh=e=>(e||"").split("@")[0];
+const hm=t=>t?new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"";
+const say=(t,el)=>{$(el||"msg").textContent=t};
+function twoTap(b,label,ask,fn){let t=null;b.onclick=()=>{if(!t){b.textContent=ask;t=setTimeout(()=>{t=null;b.textContent=label},5000);return}clearTimeout(t);t=null;b.textContent=label;fn()}}
+async function commit(ops){for(let i=0;i<ops.length;i+=400){const w=writeBatch(db);ops.slice(i,i+400).forEach(([t,id,d])=>{const r=doc(db,"boxes",id);t==="set"?w.set(r,d):t==="del"?w.delete(r):w.update(r,d)});await w.commit()}}
+
+$("go").onclick=async()=>{
+ say("Entrando…","st");
+ try{await signInWithEmailAndPassword(auth,$("em").value.trim(),$("pw").value)}
+ catch(e){say(e.code==="auth/network-request-failed"?"Sem internet.":"E-mail ou senha incorretos.","st")}
+};
+$("pw").onkeydown=e=>{if(e.key==="Enter")$("go").click()};
+$("out").onclick=()=>signOut(auth);
+
+onAuthStateChanged(auth,u=>{
+ unsubs.forEach(f=>f());unsubs=[];boxes={};loaded=false;
+ if(!u){$("login").hidden=false;$("app").hidden=true;$("drop").hidden=true;say("","st");return}
+ me=(u.email||"").toLowerCase();isLead=me===LEADER;
+ $("login").hidden=true;$("lead").hidden=!isLead;
+ $("me").textContent="Olá, "+sh(me)+(isLead?" (líder)":"");
+ scope=isLead?"all":"mine";syncScope();
+ say("Carregando…","st");
+ unsubs.push(onSnapshot(collection(db,"boxes"),sn=>{boxes={};sn.docs.forEach(d=>{boxes[d.id]=d.data()});loaded=true;render()},e=>say("Erro ao carregar: "+e.message,"st")));
+ unsubs.push(onSnapshot(doc(db,"config","team"),d=>{team=d.exists()?(d.data().members||[]):[];const t=$("team");if(document.activeElement!==t)t.value=team.join("\n")},()=>{}));
+});
+
+function syncScope(){document.querySelectorAll("#scope button").forEach(x=>x.classList.toggle("on",x.dataset.s===scope))}
+function render(){
+ const has=Object.keys(boxes).length>0;
+ if(!busy)say(loaded&&!has?(isLead?"":"Aguardando o líder importar a planilha."):"","st");
+ $("drop").hidden=!(isLead&&loaded&&!has);
+ $("app").hidden=!(loaded&&has);
+ if(!has)return;
+ const all=[];Object.entries(boxes).forEach(([k,b])=>(b.people||[]).forEach(p=>all.push({o:b.owner,p})));
+ const f=all.filter(x=>x.p.s==="f").length,n=all.filter(x=>x.p.s==="n").length,t=all.length;
+ const mine=all.filter(x=>x.o===me),md=mine.filter(x=>x.p.s).length;
+ $("cnt").textContent="Você: "+md+" de "+mine.length+"  ·  Geral: "+(f+n)+" de "+t;
+ $("det").textContent="✓ "+f+"  ✗ "+n;
+ $("pf").style.width=(t?f/t*100:0)+"%";$("pn").style.width=(t?n/t*100:0)+"%";
+ const q=$("q").value.toLowerCase().trim(),L=$("list");L.innerHTML="";let shown=0;
+ Object.keys(boxes).filter(k=>scope==="all"||boxes[k].owner===me).sort((a,b)=>cmp(boxes[a].box,boxes[b].box)).forEach(k=>{
+  const bx=boxes[k],b=String(bx.box),pp=bx.people||[],boxHit=q&&b.toLowerCase().includes(q);
+  const vis=pp.map((p,i)=>i).filter(i=>{const p=pp[i];
+   if(tab==="p"&&p.s)return false;if(tab==="f"&&p.s!=="f")return false;if(tab==="n"&&p.s!=="n")return false;
+   return !q||boxHit||p.n.toLowerCase().includes(q)});
+  if(!vis.length)return;shown++;
+  const done=pp.filter(p=>p.s).length;
+  const c=document.createElement("div");c.className="cx"+(done===pp.length?" full":"");
+  const h=document.createElement("button");h.className="hd";h.innerHTML="<b></b><span></span>";
+  h.firstChild.textContent="Caixa "+b;
+  h.lastChild.textContent=(done===pp.length?"✓ ":"")+done+"/"+pp.length+(scope==="all"?" · "+(bx.owner?sh(bx.owner):"sem dono"):"")+"  "+(open[k]||q?"▲":"▼");
+  h.onclick=()=>{open[k]=!open[k];render()};c.appendChild(h);
+  if(open[k]||q){
+   const w=document.createElement("div");w.className="pp";
+   vis.forEach(i=>{const p=pp[i],el=document.createElement("div");el.className="p";
+    el.innerHTML='<div class="nm"><span></span><span class="dt"></span></div><button class="y">✓</button><button class="x">✗</button>';
+    el.querySelector(".nm span").textContent=p.n;
+    el.querySelector(".dt").textContent=p.d+(p.s?" · "+(p.by||"")+" "+hm(p.at):"");
+    const y=el.querySelector(".y"),x=el.querySelector(".x");
+    if(p.s==="f")y.classList.add("on");if(p.s==="n")x.classList.add("on");
+    const mark=async v=>{
+     const cur=(boxes[k].people||[]).map(z=>({...z}));
+     cur[i]=p.s===v?{...cur[i],s:null,by:null,at:null}:{...cur[i],s:v,by:sh(me),at:Date.now()};
+     boxes[k]={...boxes[k],people:cur};render();
+     try{await updateDoc(doc(db,"boxes",k),{people:cur})}catch(e){say("Não consegui salvar: "+e.message)}
+    };
+    y.onclick=()=>mark("f");x.onclick=()=>mark("n");w.appendChild(el)});
+   c.appendChild(w);
+  }
+  L.appendChild(c);
+ });
+ if(!shown)L.innerHTML='<div class="empty">'+(scope==="mine"?"Você não tem caixas. Veja \"Todas\" ou use \"Pegar mais caixas\".":"Nada por aqui")+'</div>';
+ if(!$("morebox").hidden)drawMore();
+}
+$("q").oninput=render;
+document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b));render()});
+document.querySelectorAll("#scope button").forEach(b=>b.onclick=()=>{scope=b.dataset.s;syncScope();render()});
+
+/* Pegar mais */
+const freeBy=()=>{const m={};Object.entries(boxes).forEach(([id,b])=>{if(b.owner&&b.owner!==me&&(b.people||[]).every(p=>!p.s))(m[b.owner]=m[b.owner]||[]).push(id)});return m};
+function drawMore(){
+ const m=freeBy(),sel=$("from"),keep=sel.value;sel.innerHTML="";
+ Object.keys(m).forEach(o=>{const op=document.createElement("option");op.value=o;op.textContent=sh(o)+" ("+m[o].length+" caixas livres)";sel.appendChild(op)});
+ if(keep&&m[keep])sel.value=keep;
+ const any=Object.keys(m).length>0;
+ $("noone").hidden=any;sel.hidden=!any;$("qty").hidden=!any;$("take").hidden=!any;
+}
+$("more").onclick=()=>{$("morebox").hidden=!$("morebox").hidden;if(!$("morebox").hidden)drawMore()};
+$("take").onclick=async()=>{
+ const o=$("from").value,n=Math.max(1,parseInt($("qty").value)||0),m=freeBy()[o]||[];
+ if(!o||!m.length){say("Nada para pegar.");return}
+ const ids=m.sort((a,b)=>cmp(boxes[b].box,boxes[a].box)).slice(0,n);
+ try{await commit(ids.map(id=>["update",id,{owner:me}]));say(ids.length+" caixa(s) de "+sh(o)+" agora são suas.");scope="mine";syncScope()}
+ catch(e){say("Erro: "+e.message)}
+};
+
+/* Líder */
+$("saveteam").onclick=async()=>{
+ const ms=[...new Set($("team").value.split(/[\n,;]/).map(x=>x.trim().toLowerCase()).filter(Boolean))];
+ try{await setDoc(doc(db,"config","team"),{members:ms});say("Equipe salva: "+ms.length+" pessoa(s).")}catch(e){say("Erro: "+e.message)}
+};
+twoTap($("div"),"Dividir caixas entre a equipe","Toque de novo para dividir (troca os responsáveis)",async()=>{
+ const ms=team.filter(Boolean);if(!ms.length){say("Salve a equipe primeiro.");return}
+ const ids=Object.keys(boxes).sort((a,b)=>cmp(boxes[a].box,boxes[b].box));
+ const base=Math.floor(ids.length/ms.length),ex=ids.length%ms.length;let i=0;const ops=[];
+ ms.forEach((m,k)=>{const c=base+(k<ex?1:0);for(let j=0;j<c;j++)ops.push(["update",ids[i++],{owner:m}])});
+ try{await commit(ops);say("Divisão feita: "+ids.length+" caixas para "+ms.length+" pessoa(s).")}catch(e){say("Erro: "+e.message)}
+});
+twoTap($("wipe"),"Apagar tudo e reimportar","Toque de novo para apagar para TODOS",async()=>{
+ try{await commit(Object.keys(boxes).map(id=>["del",id]));say("Tudo apagado.")}catch(e){say("Erro: "+e.message)}
+});
+$("f").onchange=async e=>{
+ const file=e.target.files[0];if(!file||!isLead)return;
+ try{
+  const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
+  const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
+  const fd=v=>{if(typeof v=="number"&&v>0){const o=XLSX.SSF.parse_date_code(v);return String(o.d).padStart(2,"0")+"/"+String(o.m).padStart(2,"0")+"/"+o.y}return String(v).trim()};
+  let d=data.filter(r=>r.some(c=>String(c).trim()));
+  if(d.length&&!/\d/.test(String(d[0][0]))&&!/\d/.test(String(d[0][2]||"")))d=d.slice(1);
+  const g={};d.forEach(r=>{const b=String(r[2]).trim();(g[b]=g[b]||[]).push({n:String(r[1]).trim(),d:fd(r[0]),s:null,by:null,at:null})});
+  busy=true;say("Importando…","st");
+  await commit(Object.keys(g).map(k=>["set",bid(k),{box:k,people:g[k],owner:null}]));
+  busy=false;render();
+ }catch(err){busy=false;say("Não consegui importar: "+err.message,"st")}
+ $("f").value="";
+};
+
+/* Exportar */
+const lab={f:"Encontrado",n:"Não encontrado"};
+document.querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{
+ const m=b.dataset.e,rows=[];
+ Object.keys(boxes).sort((a,b)=>cmp(boxes[a].box,boxes[b].box)).forEach(k=>{const bx=boxes[k];(bx.people||[]).forEach(p=>{if(m==="all"||p.s===m)rows.push([p.d,p.n,String(bx.box),lab[p.s]||"Pendente",p.s?(p.by||""):"",sh(bx.owner)])})});
+ if(!rows.length){say("Nenhum registro para exportar.");return}
+ const aoa=[["Data de atendimento","Nome","Caixa","Status","Verificado por","Responsável"],...rows];
+ const ws=XLSX.utils.aoa_to_sheet(aoa);
+ ws["!cols"]=[0,1,2,3,4,5].map(c=>({wch:Math.max(10,...aoa.map(r=>String(r[c]).length))+3}));
+ const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Prontuários");
+ const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+ const name={all:"prontuarios_todos",f:"prontuarios_encontrados",n:"prontuarios_nao_encontrados"}[m]+".xlsx";
+ const u=URL.createObjectURL(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+ const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(u),4000);say("Arquivo gerado: "+name);
+});
+</script></main></body></html>
