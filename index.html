@@ -56,6 +56,7 @@ section#login input,.act input,.act select,.act textarea{width:100%;padding:12px
 <button class="big" id="go">Entrar</button>
 </section>
 <label class="drop" id="drop" hidden><b>Importar planilha Excel (líder)</b>Colunas: data, nome, nº da caixa<input type="file" id="f" accept=".xlsx,.xls,.csv"></label>
+<div id="pv" class="lead" hidden><div class="msg" id="pvt"></div><button id="pvok" class="big">Importar</button><button id="pvno">Cancelar</button></div>
 <div id="app" hidden>
 <div class="who"><span id="me"></span><button id="out">Sair</button></div>
 <div class="bar">
@@ -140,7 +141,7 @@ function syncScope(){document.querySelectorAll("#scope button").forEach(x=>x.cla
 function render(){
  const has=Object.keys(boxes).length>0;
  if(!busy)say(loaded&&!has?(isLead?"":"Aguardando o líder importar a planilha."):"","st");
- $("drop").hidden=!(isLead&&loaded&&!has);
+ $("drop").hidden=!(isLead&&loaded&&!has);if(has)$("pv").hidden=true;
  $("app").hidden=!(loaded&&has);
  if(!has)return;
  const all=[];Object.entries(boxes).forEach(([k,b])=>(b.people||[]).forEach(p=>all.push({o:b.owner,p})));
@@ -221,20 +222,52 @@ twoTap($("div"),"Dividir caixas entre a equipe","Toque de novo para dividir (tro
 twoTap($("wipe"),"Apagar tudo e reimportar","Toque de novo para apagar para TODOS",async()=>{
  try{await commit(Object.keys(boxes).map(id=>["del",id]));say("Tudo apagado.")}catch(e){say("Erro: "+e.message)}
 });
+const dre=/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/;
+function detect(rows){
+ const nc=Math.min(6,Math.max(3,...rows.slice(0,50).map(x=>x.t.length)));
+ const sc=[];
+ for(let c=0;c<nc;c++){
+  const s=rows.slice(0,40).map(x=>String(x.t[c]??"").trim()).filter(Boolean),n=s.length||1;
+  sc.push({c,n:s.length,date:s.filter(v=>dre.test(v)).length/n,text:s.filter(v=>/[A-Za-zÀ-ÿ]/.test(v)&&!dre.test(v)).length/n,num:s.filter(v=>/^\d+$/.test(v)).length/n});
+ }
+ const best=(arr,k)=>arr.slice().sort((x,y)=>y[k]-x[k])[0];
+ const d=best(sc,"date");let dc=d&&d.date>=0.6?d.c:null;
+ let rest=sc.filter(x=>x.c!==dc&&x.n>0);
+ const nm=best(rest,"text");let nmc=nm&&nm.text>=0.5?nm.c:null;
+ rest=rest.filter(x=>x.c!==nmc);
+ const bx=best(rest,"num");let bxc=bx&&bx.n>0?bx.c:null;
+ if(dc===null||nmc===null||bxc===null||new Set([dc,nmc,bxc]).size<3)return{date:0,name:1,box:2,auto:false};
+ return{date:dc,name:nmc,box:bxc,auto:true};
+}
+const fd=v=>{if(typeof v=="number"&&v>0){const o=XLSX.SSF.parse_date_code(v);return String(o.d).padStart(2,"0")+"/"+String(o.m).padStart(2,"0")+"/"+o.y}return String(v).trim()};
+let pending=null;
 $("f").onchange=async e=>{
  const file=e.target.files[0];if(!file||!isLead)return;
  try{
   const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
-  const data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:""});
-  const fd=v=>{if(typeof v=="number"&&v>0){const o=XLSX.SSF.parse_date_code(v);return String(o.d).padStart(2,"0")+"/"+String(o.m).padStart(2,"0")+"/"+o.y}return String(v).trim()};
-  let d=data.filter(r=>r.some(c=>String(c).trim()));
-  if(d.length&&!/\d/.test(String(d[0][0]))&&!/\d/.test(String(d[0][2]||"")))d=d.slice(1);
-  const g={};d.forEach(r=>{const b=String(r[2]).trim();(g[b]=g[b]||[]).push({n:String(r[1]).trim(),d:fd(r[0]),s:null,by:null,at:null})});
-  busy=true;say("Importando…","st");
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""});
+  const txt=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:"",dateNF:"dd/mm/yyyy"});
+  let rows=[];raw.forEach((r,i)=>{if(r.some(c=>String(c).trim()))rows.push({r,t:(txt[i]||[]).map(v=>String(v))})});
+  const cols=detect(rows);
+  const f0=rows[0];
+  if(f0&&typeof f0.r[cols.date]!=="number"&&!dre.test(String(f0.t[cols.date]||"").trim()))rows=rows.slice(1);
+  const g={};let total=0;
+  rows.forEach(x=>{const b=String(x.r[cols.box]).trim(),n=String(x.r[cols.name]).trim();if(!b||!n)return;(g[b]=g[b]||[]).push({n,d:fd(x.r[cols.date]),s:null,by:null,at:null});total++});
+  pending=g;
+  const L=c=>String.fromCharCode(65+c),k0=Object.keys(g)[0],ex=k0?g[k0][0]:null;
+  $("pvt").textContent=(cols.auto?"Detectei: ":"Não consegui detectar, usei a ordem data, nome, caixa. ")+"nome na coluna "+L(cols.name)+", caixa na "+L(cols.box)+", data na "+L(cols.date)+". Exemplo: "+(ex?ex.n+" · caixa "+k0+" · "+ex.d:"(vazio)")+". Total: "+total+" pessoas em "+Object.keys(g).length+" caixas.";
+  $("pv").hidden=false;
+ }catch(err){say("Não consegui ler a planilha: "+err.message,"st")}
+ $("f").value="";
+};
+$("pvno").onclick=()=>{pending=null;$("pv").hidden=true};
+$("pvok").onclick=async()=>{
+ if(!pending||!isLead)return;const g=pending;pending=null;$("pv").hidden=true;
+ try{busy=true;say("Importando…","st");
   await commit(Object.keys(g).map(k=>["set",bid(k),{box:k,people:g[k],owner:null}]));
   busy=false;render();
  }catch(err){busy=false;say("Não consegui importar: "+err.message,"st")}
- $("f").value="";
 };
 
 /* Exportar */
